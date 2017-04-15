@@ -52,6 +52,7 @@ Revision History:
 #include "WinTypes.h"
 //#include <direct.h>
 #include <time.h>
+#include <sys/time.h>
 //#include <io.h>
 
 #include "ftd2xx.h"

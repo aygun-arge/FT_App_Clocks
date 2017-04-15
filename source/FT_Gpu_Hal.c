@@ -67,9 +67,9 @@ ft_bool_t  Ft_Gpu_Hal_Init(Ft_Gpu_HalInit_t *halinit)
 #endif
 
 #ifdef LINUX_PLATFORM_SPI
-	if((context = MPSSE(SPI0, TWELVE_MHZ, MSB)) != NULL && context->open)
+	if((context = MPSSE(SPI0, SIX_MHZ, MSB)) != NULL && context->open)
 	{
-		printf("%s initialized at %dHz (SPI mode 0)\n", GetDescription(context), GetClock(context));
+		printf("%s device initialized\n", GetDescription(context));
  		printf("Vid = %04x, Pid = %04x\n", GetVid(context), GetPid(context));
 	}
 	else
@@ -110,8 +110,13 @@ ft_bool_t    Ft_Gpu_Hal_Open(Ft_Gpu_Hal_Context_t *host)
 	printf("\nhandle=0x%x status=0x%x\n",host->hal_handle,status);	
 #endif
 #ifdef LINUX_PLATFORM_SPI
-	if (!context->open)
+	SetClock(context, host->hal_config.spi_clockrate_khz * 1000);
+		printf("Clock rate is %dHz (SPI mode 0)\n", GetClock(context));
+	if (!context->open) 
+	{
+		printf("SPI Device is not open\n");
 		return FALSE;
+	}
 #endif	
 	host->ft_cmd_fifo_wp = host->ft_dl_buff_wp = 0;
 	host->status = FT_GPU_HAL_OPENED;
@@ -173,6 +178,20 @@ ft_void_t  Ft_Gpu_Hal_StartTransfer(Ft_Gpu_Hal_Context_t *host,FT_GPU_TRANSFERDI
 #ifdef MSVC_FT800EMU
 		Ft_GpuEmu_SPII2C_StartRead(addr);
 #endif
+
+#ifdef LINUX_PLATFORM_SPI
+		ft_uint8_t Transfer_Array[4];
+
+		/* Compose the read packet */
+		Transfer_Array[0] = addr >> 16;
+		Transfer_Array[1] = addr >> 8;
+		Transfer_Array[2] = addr;
+
+		Transfer_Array[3] = 0; //Dummy Read byte
+		Write(context,Transfer_Array,sizeof(Transfer_Array));
+
+#endif
+
 		host->status = FT_GPU_HAL_READING;
 	}else{
 #ifdef MSVC_PLATFORM_SPI
@@ -194,6 +213,16 @@ ft_void_t  Ft_Gpu_Hal_StartTransfer(Ft_Gpu_Hal_Context_t *host,FT_GPU_TRANSFERDI
 #ifdef MSVC_FT800EMU
 		Ft_GpuEmu_SPII2C_StartWrite(addr);
 #endif
+#ifdef LINUX_PLATFORM_SPI
+		ft_uint8_t Transfer_Array[3];
+
+		/* Compose the read packet */
+		Transfer_Array[0] = (0x80 | (addr >> 16));
+		Transfer_Array[1] = addr >> 8;
+		Transfer_Array[2] = addr;
+		Write(context,Transfer_Array,3);
+#endif
+
 		host->status = FT_GPU_HAL_WRITING;
 	}
 }
@@ -239,6 +268,14 @@ ft_uint8_t    Ft_Gpu_Hal_Transfer8(Ft_Gpu_Hal_Context_t *host,ft_uint8_t value)
 #ifdef MSVC_FT800EMU
 	return Ft_GpuEmu_SPII2C_transfer(value);
 #endif
+#ifdef LINUX_PLATFORM_SPI
+	if (host->status == FT_GPU_HAL_WRITING){
+		Write(context,&value,sizeof(value));
+	}else{
+		FastRead(context,&value,sizeof(value));
+	}
+    return value;
+#endif	
 }
 
 
@@ -283,6 +320,11 @@ ft_void_t   Ft_Gpu_Hal_EndTransfer(Ft_Gpu_Hal_Context_t *host)
 	Ft_GpuEmu_SPII2C_csHigh();
 #endif
 	host->status = FT_GPU_HAL_OPENED;
+#ifdef LINUX_PLATFORM_SPI  
+	//just disbale the CS - send 0 bytes with CS disable
+	SetCSIdle(context, TRUE);
+#endif
+
 }
 
 
@@ -352,6 +394,16 @@ ft_void_t Ft_Gpu_HostCommand(Ft_Gpu_Hal_Context_t *host,ft_uint8_t cmd)
 #ifdef MSVC_FT800EMU
   //Not implemented in FT800EMU
 #endif
+#ifdef LINUX_PLATFORM_SPI
+  ft_uint8_t Transfer_Array[3];
+
+  Transfer_Array[0] = cmd;
+  Transfer_Array[1] = 0;
+  Transfer_Array[2] = 0;
+
+  Write(context, Transfer_Array, sizeof(Transfer_Array));
+#endif
+
 }
 
 ft_void_t Ft_Gpu_ClockSelect(Ft_Gpu_Hal_Context_t *host,FT_GPU_PLL_SOURCE_T pllsource)
@@ -405,7 +457,7 @@ ft_void_t Ft_Gpu_Hal_WrCmdBuf(Ft_Gpu_Hal_Context_t *host,ft_uint8_t *buffer,ft_u
 
                 Ft_Gpu_Hal_StartCmdTransfer(host,FT_GPU_WRITE,length);
 
-#if defined(ARDUINO_PLATFORM_SPI) || defined(MSVC_FT800EMU)
+#if defined(ARDUINO_PLATFORM_SPI) || defined(MSVC_FT800EMU)  || defined (LINUX_PLATFORM_SPI)
                 SizeTransfered = 0;
 		while (length--) {
                     Ft_Gpu_Hal_Transfer8(host,*buffer);
@@ -496,7 +548,7 @@ ft_void_t Ft_Gpu_Hal_WrCmdBuf_nowait(Ft_Gpu_Hal_Context_t *host,ft_uint8_t *buff
                 Ft_Gpu_Hal_StartCmdTransfer(host,FT_GPU_WRITE,length);
 
 //#ifdef ARDUINO_PLATFORM_SPI
-#if defined(ARDUINO_PLATFORM_SPI) || defined(MSVC_FT800EMU)
+#if defined(ARDUINO_PLATFORM_SPI) || defined(MSVC_FT800EMU)  || defined(LINUX_PLATFORM_SPI)
                 SizeTransfered = 0;
 		while (length--) {
                     Ft_Gpu_Hal_Transfer8(host,*buffer);
@@ -587,6 +639,14 @@ ft_void_t Ft_Gpu_Hal_Powercycle(Ft_Gpu_Hal_Context_t *host, ft_bool_t up)
             digitalWrite(FT800_PD_N, HIGH);
             Ft_Gpu_Hal_Sleep(50);
 #endif
+#ifdef LINUX_PLATFORM
+            PinLow(context, GPIO3);
+            Ft_Gpu_Hal_Sleep(20);
+
+            PinHigh(context, GPIO3);
+            Ft_Gpu_Hal_Sleep(20);
+#endif
+
 	}else
 	{
 #ifdef MSVC_PLATFORM
@@ -603,6 +663,13 @@ ft_void_t Ft_Gpu_Hal_Powercycle(Ft_Gpu_Hal_Context_t *host, ft_bool_t up)
             digitalWrite(FT800_PD_N, LOW);
             Ft_Gpu_Hal_Sleep(20);
 #endif
+#ifdef LINUX_PLATFORM
+            PinHigh(context, GPIO3);
+            Ft_Gpu_Hal_Sleep(20);
+
+            PinLow(context, GPIO3);
+            Ft_Gpu_Hal_Sleep(20);
+#endif
 	}
 }
 ft_void_t Ft_Gpu_Hal_WrMemFromFlash(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr,const ft_prog_uchar8_t *buffer, ft_uint32_t length)
@@ -611,7 +678,7 @@ ft_void_t Ft_Gpu_Hal_WrMemFromFlash(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr,
 
 	Ft_Gpu_Hal_StartTransfer(host,FT_GPU_WRITE,addr);
 
-#if defined(ARDUINO_PLATFORM_SPI) || defined(MSVC_FT800EMU)
+#if defined(ARDUINO_PLATFORM_SPI) || defined(MSVC_FT800EMU)  || defined(LINUX_PLATFORM_SPI)
 	while (length--) {
             Ft_Gpu_Hal_Transfer8(host,ft_pgm_read_byte_near(buffer));
 	    buffer++;
@@ -634,7 +701,7 @@ ft_void_t Ft_Gpu_Hal_WrMem(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr,const ft_
 
 	Ft_Gpu_Hal_StartTransfer(host,FT_GPU_WRITE,addr);
 
-#if defined(ARDUINO_PLATFORM_SPI) || defined(MSVC_FT800EMU)
+#if defined(ARDUINO_PLATFORM_SPI) || defined(MSVC_FT800EMU) || defined(LINUX_PLATFORM_SPI)
 	while (length--) {
             Ft_Gpu_Hal_Transfer8(host,*buffer);
 	    buffer++;
@@ -658,7 +725,7 @@ ft_void_t Ft_Gpu_Hal_RdMem(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr, ft_uint8
 
 	Ft_Gpu_Hal_StartTransfer(host,FT_GPU_READ,addr);
 
-#if defined(ARDUINO_PLATFORM_SPI) || defined(MSVC_FT800EMU)
+#if defined(ARDUINO_PLATFORM_SPI) || defined(MSVC_FT800EMU) || defined(LINUX_PLATFORM_SPI)
 	while (length--) {
 	   *buffer = Ft_Gpu_Hal_Transfer8(host,0);
 	   buffer++;
@@ -723,6 +790,9 @@ ft_void_t Ft_Gpu_Hal_Sleep(ft_uint16_t ms)
 #endif
 #ifdef ARDUINO_PLATFORM
 	delay(ms);
+#endif
+#if  defined(LINUX_PLATFORM_SPI)
+	sleep(ms);
 #endif
 }
 

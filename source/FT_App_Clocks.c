@@ -762,6 +762,16 @@ ft_void_t setup()
 ft_int32_t main(ft_int32_t argc,ft_char8_t *argv[])
 #endif
 {
+
+
+#ifdef LINUX_PLATFORM
+  // remove the FTDI serial drivers, they cannot co-exist with the ftdi2XX library
+  printf("removing existing serial drivers\n");
+  system("rmmod ftdi_sio > /dev/null 2>&1 &");
+  system("rmmod usbserial > /dev/null 2>&1 &");
+#endif  
+
+
 	Ft_Gpu_HalInit_t halinit;
 	
 	halinit.TotalChannelNum = 1;
@@ -769,11 +779,14 @@ ft_int32_t main(ft_int32_t argc,ft_char8_t *argv[])
               
 	Ft_Gpu_Hal_Init(&halinit);
 	host.hal_config.channel_no = 0;
-#ifdef MSVC_PLATFORM_SPI
+#ifdef MSVC_PLATFORM_SPI 
 	host.hal_config.spi_clockrate_khz = 12000; //in KHz
 #endif
 #ifdef ARDUINO_PLATFORM_SPI
 	host.hal_config.spi_clockrate_khz = 4000; //in KHz
+#endif
+#ifdef LINUX_PLATFORM_SPI 
+  host.hal_config.spi_clockrate_khz = 10000; //in KHz
 #endif
         Ft_Gpu_Hal_Open(&host);
             
