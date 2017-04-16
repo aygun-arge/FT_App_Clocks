@@ -54,9 +54,6 @@ ft_char8_t FT_DispPCLKPol = 1;
 /* Global used for buffer optimization */
 Ft_Gpu_Hal_Context_t host,*phost;
 
-
-
-
 ft_uint32_t Ft_CmdBuffer_Index;
 ft_uint32_t Ft_DlBuffer_Index;
 
@@ -202,7 +199,7 @@ ft_void_t SAMAPP_GPU_DLSwap(ft_uint8_t DL_Swap_Type)
 
 ft_void_t Ft_BootupConfig()
 {
-
+  printf("calling powercycle\n");
 	/* Do a power cycle for safer side */
 	Ft_Gpu_Hal_Powercycle(phost,FT_TRUE);
 	 Ft_Gpu_Hal_Rd16(phost,RAM_G);
@@ -228,11 +225,18 @@ ft_void_t Ft_BootupConfig()
 		ft_uint8_t chipid;
 		//Read Register ID to check if FT800 is ready. 
 		chipid = Ft_Gpu_Hal_Rd8(phost, REG_ID);
-		while(chipid != 0x7C)
+		while(chipid != 0x7C) {
 			chipid = Ft_Gpu_Hal_Rd8(phost, REG_ID);
+      printf("VC1 register ID %x\n",chipid);
+    }
 #ifdef MSVC_PLATFORM
 		printf("VC1 register ID after wake up %x\n",chipid);
 #endif
+#ifdef LINUX_PLATFORM
+    printf("VC1 register ID after wake up %x\n",chipid);
+#endif
+  printf("??????");
+
 	}
 	/* Configuration of LCD display */
 #ifdef SAMAPP_DISPLAY_QVGA	
@@ -252,26 +256,42 @@ ft_void_t Ft_BootupConfig()
 	FT_DispPCLKPol = 0;
 #endif
 
+printf("0");
     Ft_Gpu_Hal_Wr16(phost, REG_HCYCLE, FT_DispHCycle);
+printf("1");
     Ft_Gpu_Hal_Wr16(phost, REG_HOFFSET, FT_DispHOffset);
+printf("2");
     Ft_Gpu_Hal_Wr16(phost, REG_HSYNC0, FT_DispHSync0);
+printf("3");
     Ft_Gpu_Hal_Wr16(phost, REG_HSYNC1, FT_DispHSync1);
+printf("4");
     Ft_Gpu_Hal_Wr16(phost, REG_VCYCLE, FT_DispVCycle);
+printf("5");
     Ft_Gpu_Hal_Wr16(phost, REG_VOFFSET, FT_DispVOffset);
+printf("6");
     Ft_Gpu_Hal_Wr16(phost, REG_VSYNC0, FT_DispVSync0);
+printf("7");
     Ft_Gpu_Hal_Wr16(phost, REG_VSYNC1, FT_DispVSync1);
+printf("8");
     Ft_Gpu_Hal_Wr8(phost, REG_SWIZZLE, FT_DispSwizzle);
+printf("9");
     Ft_Gpu_Hal_Wr8(phost, REG_PCLK_POL, FT_DispPCLKPol);
+printf("10");
     Ft_Gpu_Hal_Wr8(phost, REG_PCLK,FT_DispPCLK);//after this display is visible on the LCD
+printf("11");
     Ft_Gpu_Hal_Wr16(phost, REG_HSIZE, FT_DispWidth);
+printf("12");
     Ft_Gpu_Hal_Wr16(phost, REG_VSIZE, FT_DispHeight);
+printf("13");
 
 
     /* Touch configuration - configure the resistance value to 1200 - this value is specific to customer requirement and derived by experiment */
     Ft_Gpu_Hal_Wr16(phost, REG_TOUCH_RZTHRESH,1200);
+printf("14");
     Ft_Gpu_Hal_Wr8(phost, REG_GPIO_DIR,0xff);
+printf("15");
     Ft_Gpu_Hal_Wr8(phost, REG_GPIO,0x0ff);
-
+printf("16");
 
 
 }
@@ -763,7 +783,6 @@ ft_int32_t main(ft_int32_t argc,ft_char8_t *argv[])
 #endif
 {
 
-
 #ifdef LINUX_PLATFORM
   // remove the FTDI serial drivers, they cannot co-exist with the ftdi2XX library
   printf("removing existing serial drivers\n");
@@ -786,13 +805,14 @@ ft_int32_t main(ft_int32_t argc,ft_char8_t *argv[])
 	host.hal_config.spi_clockrate_khz = 4000; //in KHz
 #endif
 #ifdef LINUX_PLATFORM_SPI 
-  host.hal_config.spi_clockrate_khz = 10000; //in KHz
+  host.hal_config.spi_clockrate_khz = 5000; //in KHz
 #endif
-        Ft_Gpu_Hal_Open(&host);
+  
+  Ft_Gpu_Hal_Open(&host);
             
 	phost = &host;
 
-    Ft_BootupConfig();
+  Ft_BootupConfig();
 
 	printf("reg_touch_rz =0x%x ", Ft_Gpu_Hal_Rd16(phost, REG_TOUCH_RZ));
 	printf("reg_touch_rzthresh =0x%x ", Ft_Gpu_Hal_Rd32(phost, REG_TOUCH_RZTHRESH));

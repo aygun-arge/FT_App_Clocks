@@ -38,9 +38,9 @@ Revision History:
 //#define MSVC_PLATFORM // enable by default for MSVC platform
 
 //#define SAMAPP_DISPLAY_QVGA
-#define ORIENTATION_PORTRAIT 
-//#define ORIENTATION_LANDSCAPE 
-#define SAMAPP_DISPLAY_WQVGA
+//#define ORIENTATION_PORTRAIT 
+#define ORIENTATION_LANDSCAPE 
+//#define SAMAPP_DISPLAY_WQVGA
 
 /* Uncomment this macro to enable the FT801 specific features, enable this macro only on demo applications that support FT801. */
 //#define FT_801_ENABLE 

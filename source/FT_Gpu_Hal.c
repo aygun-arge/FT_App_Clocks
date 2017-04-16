@@ -221,6 +221,7 @@ ft_void_t  Ft_Gpu_Hal_StartTransfer(Ft_Gpu_Hal_Context_t *host,FT_GPU_TRANSFERDI
 		Transfer_Array[1] = addr >> 8;
 		Transfer_Array[2] = addr;
 		Write(context,Transfer_Array,3);
+
 #endif
 
 		host->status = FT_GPU_HAL_WRITING;
@@ -290,7 +291,6 @@ ft_uint16_t  Ft_Gpu_Hal_Transfer16(Ft_Gpu_Hal_Context_t *host,ft_uint16_t value)
 		retVal = Ft_Gpu_Hal_Transfer8(host,0);
 		retVal |= (ft_uint16_t)Ft_Gpu_Hal_Transfer8(host,0) << 8;
 	}
-
 	return retVal;
 }
 ft_uint32_t  Ft_Gpu_Hal_Transfer32(Ft_Gpu_Hal_Context_t *host,ft_uint32_t value)
@@ -620,9 +620,12 @@ ft_void_t Ft_Gpu_Hal_ResetDLBuffer(Ft_Gpu_Hal_Context_t *host)
 {
            host->ft_dl_buff_wp = 0;
 }
+
 /* Toggle PD_N pin of FT800 board for a power cycle*/
+
 ft_void_t Ft_Gpu_Hal_Powercycle(Ft_Gpu_Hal_Context_t *host, ft_bool_t up)
 {
+
 	if (up)
 	{
 #ifdef MSVC_PLATFORM
@@ -640,10 +643,12 @@ ft_void_t Ft_Gpu_Hal_Powercycle(Ft_Gpu_Hal_Context_t *host, ft_bool_t up)
             Ft_Gpu_Hal_Sleep(50);
 #endif
 #ifdef LINUX_PLATFORM
-            PinLow(context, GPIO3);
+
+           PinHigh(context, CS);
+            PinLow(context, GPIOL3);
             Ft_Gpu_Hal_Sleep(20);
 
-            PinHigh(context, GPIO3);
+            PinHigh(context, GPIOL3);
             Ft_Gpu_Hal_Sleep(20);
 #endif
 
@@ -664,14 +669,18 @@ ft_void_t Ft_Gpu_Hal_Powercycle(Ft_Gpu_Hal_Context_t *host, ft_bool_t up)
             Ft_Gpu_Hal_Sleep(20);
 #endif
 #ifdef LINUX_PLATFORM
-            PinHigh(context, GPIO3);
+
+            PinHigh(context, CS);
+            PinHigh(context, GPIOL3);
             Ft_Gpu_Hal_Sleep(20);
 
-            PinLow(context, GPIO3);
+            PinLow(context, GPIOL3);
             Ft_Gpu_Hal_Sleep(20);
 #endif
 	}
 }
+
+
 ft_void_t Ft_Gpu_Hal_WrMemFromFlash(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr,const ft_prog_uchar8_t *buffer, ft_uint32_t length)
 {
 	ft_uint32_t SizeTransfered = 0;      
@@ -792,7 +801,7 @@ ft_void_t Ft_Gpu_Hal_Sleep(ft_uint16_t ms)
 	delay(ms);
 #endif
 #if  defined(LINUX_PLATFORM_SPI)
-	sleep(ms);
+	usleep(ms*1000);
 #endif
 }
 
