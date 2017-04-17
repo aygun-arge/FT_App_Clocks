@@ -65,7 +65,7 @@ Revision History:
 #include "FT_Gpu.h"
 #include "FT_CoPro_Cmds.h"
 
-#define BUFFER_OPTIMIZATION
+//#define BUFFER_OPTIMIZATION
 //#define MSVC_PLATFORM_SPI
 
 #define LINUX_PLATFORM

@@ -381,8 +381,11 @@ ft_uint8_t Read_Keys()
 {
   static ft_uint8_t Read_tag=0,temp_tag=0,ret_tag=0;	
   Read_tag = Ft_Gpu_Hal_Rd8(phost,REG_TOUCH_TAG);
-  ret_tag = NULL;
-  if(Read_tag!=NULL)								// Allow if the Key is released
+//  ret_tag = NULL;
+//  if(Read_tag!=NULL)								// Allow if the Key is released
+  // get rid of warning of incompatibility between pointer and Integer
+  ret_tag = 0;
+  if(Read_tag!= 0)                // Allow if the Key is released
   {
     if(temp_tag!=Read_tag)
     {
@@ -417,7 +420,7 @@ void Ft_Play_Sound(ft_uint8_t sound,ft_uint8_t vol,ft_uint8_t midi)
                 
 ft_void_t Info()
 {
-  ft_uint16_t dloffset = 0,z;
+  ft_uint16_t dloffset = 0;
   Ft_CmdBuffer_Index = 0;
   
 
@@ -620,12 +623,15 @@ static ft_uint16_t Get_TagRotary_Value(ft_uint16_t Tagval,ft_uint16_t range,ft_u
   }
   return retval;
 }
-static ft_uint8_t temp_mins=0,temp_secs=0,temp_Hrs;
  #if defined(MSVC_PLATFORM) || defined(MSVC_FT800EMU)
+  static ft_uint8_t temp_mins=0,temp_secs=0,temp_Hrs;
   SYSTEMTIME str_t;
   #endif
+
 void timer(ft_uint8_t name)
 {
+
+ /* needs sorting just comment out for now 
   static ft_uint8_t temp_time = 0;
   char hrs_t[2],min_t[2],*temp;
   static ft_uint16_t temp_m=0,Hrs=0;
@@ -679,7 +685,7 @@ void timer(ft_uint8_t name)
      clk_adj = 0;
      ist.Mins = min_val%60;
      ist.Hrs = (min_val/60)%12;
-  }
+  } */
 }
 
 ft_void_t Clocks(ft_uint8_t clksize,ft_uint8_t options)
@@ -687,20 +693,16 @@ ft_void_t Clocks(ft_uint8_t clksize,ft_uint8_t options)
  
 
   ft_uint8_t 
-	      clk_s = clksize/10,per_f,n_f,name,Tag;
+	      clk_s = clksize/10,per_f,name,Tag;
 
   ft_uint16_t  dx = (clk_s*2)+(2*clksize),	
 	       dy = (FT_DispHeight/2)+clksize+10,
-               temp_m,Hrs;
-  ft_uint32_t t;
-
+               temp_m;
+  
   ft_uint8_t  col = FT_DispWidth/dx;
-  ft_int16_t Ox,Oy,sx,drag=0,prev=0,dragth=0,i,cts=0,th,pv;
-  ft_int32_t track,Mins;
+  ft_int16_t Ox,drag=0,dragth=0,i,cts=0; 
   per_f = col;
   
-  n_f = (COUNTRIES)/per_f;
-  Oy = (FT_DispHeight/2);
   scroller_init(16*(COUNTRIES*(dx)-FT_DispWidth));
  
   #if defined(MSVC_PLATFORM) || defined(MSVC_FT800EMU)

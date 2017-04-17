@@ -180,12 +180,12 @@ ft_void_t  Ft_Gpu_Hal_StartTransfer(Ft_Gpu_Hal_Context_t *host,FT_GPU_TRANSFERDI
 #endif
 
 #ifdef LINUX_PLATFORM_SPI
-		ft_uint8_t Transfer_Array[4];
+		char Transfer_Array[4];
 
 		/* Compose the read packet */
-		Transfer_Array[0] = addr >> 16;
-		Transfer_Array[1] = addr >> 8;
-		Transfer_Array[2] = addr;
+		Transfer_Array[0] = (char)addr >> 16;
+		Transfer_Array[1] = (char)addr >> 8;
+		Transfer_Array[2] = (char)addr;
 
 		Transfer_Array[3] = 0; //Dummy Read byte
 		Write(context,Transfer_Array,sizeof(Transfer_Array));
@@ -214,12 +214,12 @@ ft_void_t  Ft_Gpu_Hal_StartTransfer(Ft_Gpu_Hal_Context_t *host,FT_GPU_TRANSFERDI
 		Ft_GpuEmu_SPII2C_StartWrite(addr);
 #endif
 #ifdef LINUX_PLATFORM_SPI
-		ft_uint8_t Transfer_Array[3];
+		char Transfer_Array[3];
 
 		/* Compose the read packet */
-		Transfer_Array[0] = (0x80 | (addr >> 16));
-		Transfer_Array[1] = addr >> 8;
-		Transfer_Array[2] = addr;
+		Transfer_Array[0] = (char)(0x80 | (addr >> 16));
+		Transfer_Array[1] = (char)addr >> 8;
+		Transfer_Array[2] = (char)addr;
 		Write(context,Transfer_Array,3);
 
 #endif
@@ -245,6 +245,7 @@ ft_uint8_t    Ft_Gpu_Hal_TransferString(Ft_Gpu_Hal_Context_t *host,const ft_char
     }
     //Append one null as ending flag
     Ft_Gpu_Hal_Transfer8(host,0);
+    return 0;
 }
 
 
@@ -270,12 +271,13 @@ ft_uint8_t    Ft_Gpu_Hal_Transfer8(Ft_Gpu_Hal_Context_t *host,ft_uint8_t value)
 	return Ft_GpuEmu_SPII2C_transfer(value);
 #endif
 #ifdef LINUX_PLATFORM_SPI
-	if (host->status == FT_GPU_HAL_WRITING){
-		Write(context,&value,sizeof(value));
-	}else{
-		FastRead(context,&value,sizeof(value));
+	char val = 0;
+	if (host->status == FT_GPU_HAL_WRITING) {
+		val = *Transfer(context,(char *)&value,sizeof(value));
+	} else {
+		val = *Read(context,sizeof(value));
 	}
-    return value;
+	return (ft_uint8_t)val;
 #endif	
 }
 
@@ -321,7 +323,7 @@ ft_void_t   Ft_Gpu_Hal_EndTransfer(Ft_Gpu_Hal_Context_t *host)
 #endif
 	host->status = FT_GPU_HAL_OPENED;
 #ifdef LINUX_PLATFORM_SPI  
-	//just disbale the CS - send 0 bytes with CS disable
+	//just disable the CS - send 0 bytes with CS disable
 	SetCSIdle(context, TRUE);
 #endif
 
@@ -395,9 +397,9 @@ ft_void_t Ft_Gpu_HostCommand(Ft_Gpu_Hal_Context_t *host,ft_uint8_t cmd)
   //Not implemented in FT800EMU
 #endif
 #ifdef LINUX_PLATFORM_SPI
-  ft_uint8_t Transfer_Array[3];
+  char Transfer_Array[3];
 
-  Transfer_Array[0] = cmd;
+  Transfer_Array[0] = (char)cmd;
   Transfer_Array[1] = 0;
   Transfer_Array[2] = 0;
 
@@ -644,7 +646,7 @@ ft_void_t Ft_Gpu_Hal_Powercycle(Ft_Gpu_Hal_Context_t *host, ft_bool_t up)
 #endif
 #ifdef LINUX_PLATFORM
 
-           PinHigh(context, CS);
+            PinHigh(context, CS);
             PinLow(context, GPIOL3);
             Ft_Gpu_Hal_Sleep(20);
 
@@ -683,7 +685,6 @@ ft_void_t Ft_Gpu_Hal_Powercycle(Ft_Gpu_Hal_Context_t *host, ft_bool_t up)
 
 ft_void_t Ft_Gpu_Hal_WrMemFromFlash(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr,const ft_prog_uchar8_t *buffer, ft_uint32_t length)
 {
-	ft_uint32_t SizeTransfered = 0;      
 
 	Ft_Gpu_Hal_StartTransfer(host,FT_GPU_WRITE,addr);
 
@@ -696,6 +697,7 @@ ft_void_t Ft_Gpu_Hal_WrMemFromFlash(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr,
 
 #ifdef MSVC_PLATFORM_SPI
 	{
+		ft_uint32_t SizeTransfered = 0;      
 	    SPI_Write((FT_HANDLE)host->hal_handle,buffer,length,&SizeTransfered,SPI_TRANSFER_OPTIONS_SIZE_IN_BYTES);
 	}
 #endif
@@ -706,7 +708,6 @@ ft_void_t Ft_Gpu_Hal_WrMemFromFlash(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr,
 
 ft_void_t Ft_Gpu_Hal_WrMem(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr,const ft_uint8_t *buffer, ft_uint32_t length)
 {
-	ft_uint32_t SizeTransfered = 0;      
 
 	Ft_Gpu_Hal_StartTransfer(host,FT_GPU_WRITE,addr);
 
@@ -719,6 +720,7 @@ ft_void_t Ft_Gpu_Hal_WrMem(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr,const ft_
 
 #ifdef MSVC_PLATFORM_SPI
 	{
+		ft_uint32_t SizeTransfered = 0;      
 	    SPI_Write((FT_HANDLE)host->hal_handle,buffer,length,&SizeTransfered,SPI_TRANSFER_OPTIONS_SIZE_IN_BYTES);
 	}
 #endif
@@ -730,7 +732,6 @@ ft_void_t Ft_Gpu_Hal_WrMem(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr,const ft_
 
 ft_void_t Ft_Gpu_Hal_RdMem(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr, ft_uint8_t *buffer, ft_uint32_t length)
 {
-	ft_uint32_t SizeTransfered = 0;      
 
 	Ft_Gpu_Hal_StartTransfer(host,FT_GPU_READ,addr);
 
@@ -743,6 +744,7 @@ ft_void_t Ft_Gpu_Hal_RdMem(Ft_Gpu_Hal_Context_t *host,ft_uint32_t addr, ft_uint8
 
 #ifdef MSVC_PLATFORM_SPI
 	{
+		ft_uint32_t SizeTransfered = 0;      
 	   SPI_Read((FT_HANDLE)host->hal_handle,buffer,length,&SizeTransfered,SPI_TRANSFER_OPTIONS_SIZE_IN_BYTES);
 	}
 #endif
@@ -778,7 +780,7 @@ ft_int32_t Ft_Gpu_Hal_Dec2Ascii(ft_char8_t *pSrc,ft_int32_t value)
 		CurrVal /= 10;
 		tmpval = tmpval - CurrVal*10;
 		charval = '0' + tmpval;
-		tmparray[idx++] = charval;
+		tmparray[(int)idx++] = charval;
 	}
 
 	for(i=0;i<idx;i++)
