@@ -29,6 +29,12 @@ Revision History:
 */
 #include "FT_Platform.h"
 
+#ifdef BUFFER_OPTIMIZATION  
+  //this is in FT_App_Clocks.c
+ft_void_t Ft_App_WrCoCmd_Buffer(Ft_Gpu_Hal_Context_t *phost,ft_uint32_t cmd);
+ft_void_t Ft_App_WrCoStr_Buffer(Ft_Gpu_Hal_Context_t *phost,const ft_char8_t *s);
+#endif
+
 ft_void_t Ft_Gpu_Copro_SendCmd(Ft_Gpu_Hal_Context_t *phost,ft_uint32_t cmd)
 { 
 #ifdef BUFFER_OPTIMIZATION  

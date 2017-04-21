@@ -71,6 +71,7 @@ ft_bool_t  Ft_Gpu_Hal_Init(Ft_Gpu_HalInit_t *halinit)
 	{
 		printf("%s device initialized\n", GetDescription(context));
  		printf("Vid = %04x, Pid = %04x\n", GetVid(context), GetPid(context));
+		SetCSIdle(context, TRUE);
 	}
 	else
 	{
@@ -111,7 +112,7 @@ ft_bool_t    Ft_Gpu_Hal_Open(Ft_Gpu_Hal_Context_t *host)
 #endif
 #ifdef LINUX_PLATFORM_SPI
 	SetClock(context, host->hal_config.spi_clockrate_khz * 1000);
-		printf("Clock rate is %dHz (SPI mode 0)\n", GetClock(context));
+		printf("Clock rate is %dHz\n", GetClock(context));
 	if (!context->open) 
 	{
 		printf("SPI Device is not open\n");
@@ -138,7 +139,6 @@ ft_void_t  Ft_Gpu_Hal_Close(Ft_Gpu_Hal_Context_t *host)
 #ifdef LINUX_PLATFORM_SPI
 	Close(context);
 #endif
-
 }
 
 ft_void_t Ft_Gpu_Hal_DeInit()
@@ -152,6 +152,8 @@ ft_void_t Ft_Gpu_Hal_DeInit()
 /*The APIs for reading/writing transfer continuously only with small buffer system*/
 ft_void_t  Ft_Gpu_Hal_StartTransfer(Ft_Gpu_Hal_Context_t *host,FT_GPU_TRANSFERDIR_T rw,ft_uint32_t addr)
 {
+
+	//printf("Start Transfer addr = %08x\n", (unsigned int)addr );
 	if (FT_GPU_READ == rw){
 
 #ifdef MSVC_PLATFORM_SPI
@@ -180,15 +182,25 @@ ft_void_t  Ft_Gpu_Hal_StartTransfer(Ft_Gpu_Hal_Context_t *host,FT_GPU_TRANSFERDI
 #endif
 
 #ifdef LINUX_PLATFORM_SPI
-		char Transfer_Array[4];
+		unsigned char Transfer_Array[4];
 
 		/* Compose the read packet */
-		Transfer_Array[0] = (char)addr >> 16;
-		Transfer_Array[1] = (char)addr >> 8;
-		Transfer_Array[2] = (char)addr;
+		Transfer_Array[0] = (unsigned char)(addr >> 16);
+		Transfer_Array[1] = (unsigned char)(addr >> 8);
+		Transfer_Array[2] = (unsigned char)addr;
+		Transfer_Array[3] = 0;
 
-		Transfer_Array[3] = 0; //Dummy Read byte
-		Write(context,Transfer_Array,sizeof(Transfer_Array));
+		Start(context);		Start(context);
+		Ft_Gpu_Hal_Sleep(20);
+
+		Write(context,(char *)Transfer_Array,sizeof(Transfer_Array));
+		//Write(context,(char *)&Transfer_Array[1],sizeof(char));
+		//Write(context,(char *)&Transfer_Array[2],sizeof(char));
+		//Write(context,(char *)&Transfer_Array[3],sizeof(char));
+
+		//printf("Start Transfer (Read) %02x %02x %02x\n", Transfer_Array[0], Transfer_Array[1], Transfer_Array[2]);
+
+
 
 #endif
 
@@ -196,6 +208,7 @@ ft_void_t  Ft_Gpu_Hal_StartTransfer(Ft_Gpu_Hal_Context_t *host,FT_GPU_TRANSFERDI
 	}else{
 #ifdef MSVC_PLATFORM_SPI
 		ft_uint8_t Transfer_Array[3];
+		Ft_Gpu_Hal_Sleep(20);
 		ft_uint32_t SizeTransfered;
 
 		/* Compose the read packet */
@@ -214,13 +227,16 @@ ft_void_t  Ft_Gpu_Hal_StartTransfer(Ft_Gpu_Hal_Context_t *host,FT_GPU_TRANSFERDI
 		Ft_GpuEmu_SPII2C_StartWrite(addr);
 #endif
 #ifdef LINUX_PLATFORM_SPI
-		char Transfer_Array[3];
+		unsigned char Transfer_Array[3];
 
 		/* Compose the read packet */
-		Transfer_Array[0] = (char)(0x80 | (addr >> 16));
-		Transfer_Array[1] = (char)addr >> 8;
-		Transfer_Array[2] = (char)addr;
-		Write(context,Transfer_Array,3);
+		Transfer_Array[0] = (unsigned char)(0x80 | (addr >> 16));
+		Transfer_Array[1] = (unsigned char)(addr >> 8);
+		Transfer_Array[2] = (unsigned char)addr;
+
+		Start(context);
+		Write(context,(char *)Transfer_Array,3);
+		//printf("Start Transfer (Write) %02x %02x %02x\n", Transfer_Array[0], Transfer_Array[1], Transfer_Array[2]);
 
 #endif
 
@@ -271,11 +287,14 @@ ft_uint8_t    Ft_Gpu_Hal_Transfer8(Ft_Gpu_Hal_Context_t *host,ft_uint8_t value)
 	return Ft_GpuEmu_SPII2C_transfer(value);
 #endif
 #ifdef LINUX_PLATFORM_SPI
-	char val = 0;
+	unsigned char val = 0;
 	if (host->status == FT_GPU_HAL_WRITING) {
-		val = *Transfer(context,(char *)&value,sizeof(value));
+		Write(context,(char*)&value,sizeof(value));
+		//printf("Transfer8 (Write) %02x\n", (unsigned char)value);
+		val = value;
 	} else {
-		val = *Read(context,sizeof(value));
+		val = (unsigned char) *Read(context,sizeof(value));
+		//printf("Transfer8 (Read) %02x\n", val);
 	}
 	return (ft_uint8_t)val;
 #endif	
@@ -323,8 +342,7 @@ ft_void_t   Ft_Gpu_Hal_EndTransfer(Ft_Gpu_Hal_Context_t *host)
 #endif
 	host->status = FT_GPU_HAL_OPENED;
 #ifdef LINUX_PLATFORM_SPI  
-	//just disable the CS - send 0 bytes with CS disable
-	SetCSIdle(context, TRUE);
+	Stop(context);
 #endif
 
 }
@@ -397,13 +415,17 @@ ft_void_t Ft_Gpu_HostCommand(Ft_Gpu_Hal_Context_t *host,ft_uint8_t cmd)
   //Not implemented in FT800EMU
 #endif
 #ifdef LINUX_PLATFORM_SPI
-  char Transfer_Array[3];
+  unsigned char Transfer_Array[3];
 
-  Transfer_Array[0] = (char)cmd;
+  Start(context);
+  Ft_Gpu_Hal_Sleep(20);
+
+  Transfer_Array[0] = (unsigned char)cmd;
   Transfer_Array[1] = 0;
   Transfer_Array[2] = 0;
 
-  Write(context, Transfer_Array, sizeof(Transfer_Array));
+Write(context, (char*)Transfer_Array, sizeof(Transfer_Array));
+ //printf("HostCommand %02x %02x %02x\n", Transfer_Array[0], Transfer_Array[1], Transfer_Array[2]);
 #endif
 
 }
@@ -442,6 +464,7 @@ ft_uint16_t Ft_Gpu_Cmdfifo_Freespace(Ft_Gpu_Hal_Context_t *host)
 
 	fullness = (host->ft_cmd_fifo_wp - Ft_Gpu_Hal_Rd16(host,REG_CMD_READ)) & 4095;
 	retval = (FT_CMD_FIFO_SIZE - 4) - fullness;
+	//printf("Cmdfifo_Freespace = %d\n", retval);
 	return (retval);
 }
 
@@ -462,11 +485,13 @@ ft_void_t Ft_Gpu_Hal_WrCmdBuf(Ft_Gpu_Hal_Context_t *host,ft_uint8_t *buffer,ft_u
 #if defined(ARDUINO_PLATFORM_SPI) || defined(MSVC_FT800EMU)  || defined (LINUX_PLATFORM_SPI)
                 SizeTransfered = 0;
 		while (length--) {
-                    Ft_Gpu_Hal_Transfer8(host,*buffer);
+            Ft_Gpu_Hal_Transfer8(host,*buffer);
 		    buffer++;
-                    SizeTransfered ++;
+            SizeTransfered ++;
 		}
-                length = SizeTransfered;
+        length = SizeTransfered;
+        //printf("WrCmdBuff size transferred = %d\n", (int)length );
+
 #endif
 
 #ifdef MSVC_PLATFORM_SPI
@@ -478,11 +503,13 @@ ft_void_t Ft_Gpu_Hal_WrCmdBuf(Ft_Gpu_Hal_Context_t *host,ft_uint8_t *buffer,ft_u
 #endif
 
 		Ft_Gpu_Hal_EndTransfer(host);
+
 		Ft_Gpu_Hal_Updatecmdfifo(host,length);
 
 		Ft_Gpu_Hal_WaitCmdfifo_empty(host);
 
 		count -= length;
+		//printf("WrCmdBuff count = %d \n", count);
 	}while (count > 0);
 }
 
@@ -528,8 +555,10 @@ ft_void_t Ft_Gpu_Hal_CheckCmdBuffer(Ft_Gpu_Hal_Context_t *host,ft_uint16_t count
         getfreespace = Ft_Gpu_Cmdfifo_Freespace(host);
    }while(getfreespace < count);
 }
+
 ft_void_t Ft_Gpu_Hal_WaitCmdfifo_empty(Ft_Gpu_Hal_Context_t *host)
 {
+
    while(Ft_Gpu_Hal_Rd16(host,REG_CMD_READ) != Ft_Gpu_Hal_Rd16(host,REG_CMD_WRITE));
    
    host->ft_cmd_fifo_wp = Ft_Gpu_Hal_Rd16(host,REG_CMD_WRITE);
@@ -646,7 +675,7 @@ ft_void_t Ft_Gpu_Hal_Powercycle(Ft_Gpu_Hal_Context_t *host, ft_bool_t up)
 #endif
 #ifdef LINUX_PLATFORM
 
-            PinHigh(context, CS);
+            //PinHigh(context, CS);
             PinLow(context, GPIOL3);
             Ft_Gpu_Hal_Sleep(20);
 
@@ -672,7 +701,7 @@ ft_void_t Ft_Gpu_Hal_Powercycle(Ft_Gpu_Hal_Context_t *host, ft_bool_t up)
 #endif
 #ifdef LINUX_PLATFORM
 
-            PinHigh(context, CS);
+            //PinHigh(context, CS);
             PinHigh(context, GPIOL3);
             Ft_Gpu_Hal_Sleep(20);
 

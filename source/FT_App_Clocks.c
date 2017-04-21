@@ -75,7 +75,6 @@ unsigned Ft_GetTickCount()
 #endif
 
 
-
 ft_void_t Ft_App_WrCoCmd_Buffer(Ft_Gpu_Hal_Context_t *phost,ft_uint32_t cmd)
 {
 #ifdef  BUFFER_OPTIMIZATION
@@ -114,7 +113,7 @@ ft_void_t Ft_App_WrCoStr_Buffer(Ft_Gpu_Hal_Context_t *phost,const ft_char8_t *s)
   ft_uint16_t length = 0;
   length = strlen(s) + 1;//last for the null termination
   
-  strcpy(&Ft_CmdBuffer[Ft_CmdBuffer_Index],s);  
+  strcpy((char*)&Ft_CmdBuffer[Ft_CmdBuffer_Index],(char *)s);  
 
   /* increment the length and align it by 4 bytes */
   Ft_CmdBuffer_Index += ((length + 3) & ~3);  
@@ -199,10 +198,10 @@ ft_void_t SAMAPP_GPU_DLSwap(ft_uint8_t DL_Swap_Type)
 
 ft_void_t Ft_BootupConfig()
 {
-  printf("calling powercycle\n");
+  //printf("calling powercycle\n");
 	/* Do a power cycle for safer side */
 	Ft_Gpu_Hal_Powercycle(phost,FT_TRUE);
-	 Ft_Gpu_Hal_Rd16(phost,RAM_G);
+	Ft_Gpu_Hal_Rd16(phost,RAM_G);
 	/* Set the clk to external clock */
 	Ft_Gpu_HostCommand(phost,FT_GPU_EXTERNAL_OSC);  
 	Ft_Gpu_Hal_Sleep(10);
@@ -224,19 +223,19 @@ ft_void_t Ft_BootupConfig()
 	{
 		ft_uint8_t chipid;
 		//Read Register ID to check if FT800 is ready. 
-		chipid = Ft_Gpu_Hal_Rd8(phost, REG_ID);
-		while(chipid != 0x7C) {
+		//while(1)
+    chipid = Ft_Gpu_Hal_Rd8(phost, REG_ID);
+    while(chipid != 0x7C) {
 			chipid = Ft_Gpu_Hal_Rd8(phost, REG_ID);
-      printf("VC1 register ID %x\n",chipid);
     }
+
 #ifdef MSVC_PLATFORM
 		printf("VC1 register ID after wake up %x\n",chipid);
 #endif
 #ifdef LINUX_PLATFORM
     printf("VC1 register ID after wake up %x\n",chipid);
 #endif
-  printf("??????");
-
+ 
 	}
 	/* Configuration of LCD display */
 #ifdef SAMAPP_DISPLAY_QVGA	
@@ -256,43 +255,27 @@ ft_void_t Ft_BootupConfig()
 	FT_DispPCLKPol = 0;
 #endif
 
-printf("0");
     Ft_Gpu_Hal_Wr16(phost, REG_HCYCLE, FT_DispHCycle);
-printf("1");
     Ft_Gpu_Hal_Wr16(phost, REG_HOFFSET, FT_DispHOffset);
-printf("2");
     Ft_Gpu_Hal_Wr16(phost, REG_HSYNC0, FT_DispHSync0);
-printf("3");
     Ft_Gpu_Hal_Wr16(phost, REG_HSYNC1, FT_DispHSync1);
-printf("4");
     Ft_Gpu_Hal_Wr16(phost, REG_VCYCLE, FT_DispVCycle);
-printf("5");
     Ft_Gpu_Hal_Wr16(phost, REG_VOFFSET, FT_DispVOffset);
-printf("6");
     Ft_Gpu_Hal_Wr16(phost, REG_VSYNC0, FT_DispVSync0);
-printf("7");
     Ft_Gpu_Hal_Wr16(phost, REG_VSYNC1, FT_DispVSync1);
-printf("8");
     Ft_Gpu_Hal_Wr8(phost, REG_SWIZZLE, FT_DispSwizzle);
-printf("9");
     Ft_Gpu_Hal_Wr8(phost, REG_PCLK_POL, FT_DispPCLKPol);
-printf("10");
     Ft_Gpu_Hal_Wr8(phost, REG_PCLK,FT_DispPCLK);//after this display is visible on the LCD
-printf("11");
     Ft_Gpu_Hal_Wr16(phost, REG_HSIZE, FT_DispWidth);
-printf("12");
     Ft_Gpu_Hal_Wr16(phost, REG_VSIZE, FT_DispHeight);
-printf("13");
 
 
     /* Touch configuration - configure the resistance value to 1200 - this value is specific to customer requirement and derived by experiment */
     Ft_Gpu_Hal_Wr16(phost, REG_TOUCH_RZTHRESH,1200);
-printf("14");
     Ft_Gpu_Hal_Wr8(phost, REG_GPIO_DIR,0xff);
-printf("15");
     Ft_Gpu_Hal_Wr8(phost, REG_GPIO,0x0ff);
-printf("16");
 
+    //printf("initialisation finished\n");
 
 }
 
@@ -358,7 +341,8 @@ ft_void_t home_setup()
   Ft_Gpu_Hal_WrCmd32(phost,CMD_INFLATE);
   Ft_Gpu_Hal_WrCmd32(phost,250*1024L);
   Ft_Gpu_Hal_WrCmdBuf(phost,home_star_icon,sizeof(home_star_icon));
-  
+ 
+
   Ft_Gpu_CoCmd_Dlstart(phost);        // start
   Ft_App_WrCoCmd_Buffer(phost,CLEAR(1,1,1));
   Ft_App_WrCoCmd_Buffer(phost,COLOR_RGB(255, 255, 255));
@@ -371,6 +355,7 @@ ft_void_t home_setup()
   Ft_App_WrCoCmd_Buffer(phost,BITMAP_LAYOUT(L4, 16, 32));  // format 
   Ft_App_WrCoCmd_Buffer(phost,BITMAP_SIZE(NEAREST, BORDER, BORDER, 32, 32  ));
   Ft_App_WrCoCmd_Buffer(phost,DISPLAY());
+ 
   Ft_Gpu_CoCmd_Swap(phost);
   Ft_App_Flush_Co_Buffer(phost);
   Ft_Gpu_Hal_WaitCmdfifo_empty(phost);
@@ -423,8 +408,6 @@ ft_void_t Info()
   ft_uint16_t dloffset = 0;
   Ft_CmdBuffer_Index = 0;
   
-
-  
   Ft_Gpu_CoCmd_Dlstart(phost); 
   Ft_App_WrCoCmd_Buffer(phost,CLEAR(1,1,1));
   Ft_App_WrCoCmd_Buffer(phost,COLOR_RGB(255,255,255));
@@ -433,8 +416,10 @@ ft_void_t Info()
   Ft_App_WrCoCmd_Buffer(phost,DISPLAY());
   Ft_Gpu_CoCmd_Swap(phost);
   Ft_App_Flush_Co_Buffer(phost);
+ 
   Ft_Gpu_Hal_WaitCmdfifo_empty(phost);
-  
+
+   
   Ft_Gpu_CoCmd_Logo(phost);
   Ft_App_Flush_Co_Buffer(phost);
   Ft_Gpu_Hal_WaitCmdfifo_empty(phost);
@@ -807,7 +792,7 @@ ft_int32_t main(ft_int32_t argc,ft_char8_t *argv[])
 	host.hal_config.spi_clockrate_khz = 4000; //in KHz
 #endif
 #ifdef LINUX_PLATFORM_SPI 
-  host.hal_config.spi_clockrate_khz = 5000; //in KHz
+  host.hal_config.spi_clockrate_khz = 10000; //in KHz
 #endif
   
   Ft_Gpu_Hal_Open(&host);
@@ -816,10 +801,10 @@ ft_int32_t main(ft_int32_t argc,ft_char8_t *argv[])
 
   Ft_BootupConfig();
 
-	printf("reg_touch_rz =0x%x ", Ft_Gpu_Hal_Rd16(phost, REG_TOUCH_RZ));
-	printf("reg_touch_rzthresh =0x%x ", Ft_Gpu_Hal_Rd32(phost, REG_TOUCH_RZTHRESH));
-	printf("reg_touch_tag_xy=0x%x",Ft_Gpu_Hal_Rd32(phost, REG_TOUCH_TAG_XY));
-	printf("reg_touch_tag=0x%x",Ft_Gpu_Hal_Rd32(phost, REG_TOUCH_TAG));
+	printf("reg_touch_rz =0x%x ", (unsigned int)Ft_Gpu_Hal_Rd16(phost, REG_TOUCH_RZ));
+	printf("reg_touch_rzthresh =0x%x ", (unsigned int)Ft_Gpu_Hal_Rd32(phost, REG_TOUCH_RZTHRESH));
+	printf("reg_touch_tag_xy=0x%x",(unsigned int)Ft_Gpu_Hal_Rd32(phost, REG_TOUCH_TAG_XY));
+  printf("reg_touch_tag=0x%x",(unsigned int)Ft_Gpu_Hal_Rd32(phost, REG_TOUCH_TAG));
 
 
     /*It is optional to clear the screen here*/	
@@ -827,6 +812,7 @@ ft_int32_t main(ft_int32_t argc,ft_char8_t *argv[])
     Ft_Gpu_Hal_Wr8(phost, REG_DLSWAP,DLSWAP_FRAME);
     
     Ft_Gpu_Hal_Sleep(1000);//Show the booting up screen. 
+
 
 	home_setup();
     Info();

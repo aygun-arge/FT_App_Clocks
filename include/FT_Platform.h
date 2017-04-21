@@ -29,18 +29,18 @@ Author : FTDI
 Revision History: 
 0.1 - date 2013.04.24 - initial version
 0.2 - date 2014.04.28 - Split in individual files according to platform
-
+iota 0.1 - date 2017
 */
 
 #ifndef _FT_PLATFORM_H_
 #define _FT_PLATFORM_H_
 
-//#define MSVC_PLATFORM // enable by default for MSVC platform
-
 //#define SAMAPP_DISPLAY_QVGA
 //#define ORIENTATION_PORTRAIT 
 #define ORIENTATION_LANDSCAPE 
 //#define SAMAPP_DISPLAY_WQVGA
+
+#define BUFFER_OPTIMIZATION
 
 /* Uncomment this macro to enable the FT801 specific features, enable this macro only on demo applications that support FT801. */
 //#define FT_801_ENABLE 
@@ -50,23 +50,17 @@ Revision History:
 #include <string.h>
 #include <math.h>
 #include "WinTypes.h"
-//#include <direct.h>
 #include <time.h>
 #include <sys/time.h>
-//#include <io.h>
 
-#include "ftd2xx.h"
+#include <ftd2xx.h>
 #include <mpsse.h>
 
-//#include "libMPSSE_spi.h"
 
 #include "FT_DataTypes.h"
 #include "FT_Gpu_Hal.h"
 #include "FT_Gpu.h"
 #include "FT_CoPro_Cmds.h"
-
-//#define BUFFER_OPTIMIZATION
-//#define MSVC_PLATFORM_SPI
 
 #define LINUX_PLATFORM
 #define LINUX_PLATFORM_SPI
